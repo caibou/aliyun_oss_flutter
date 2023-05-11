@@ -6,21 +6,22 @@
 //
 
 #import "UploadService.h"
-#import "UresExt.pbobjc.h"
-#import "RpcMessageExt.pbobjc.h"
 #import "NetworkServiceManager.h"
-#import "UIImage+FixOrientation.h"
 #import <AliyunOSSiOS/OSSService.h>
 
-static NSString * const DefaultEndPoint = @"https://oss-cn-shenzhen.aliyuncs.com/";
+#define CHECK_STR(x) (!(x) || ([x length]) <= 0)
 
 @interface UploadService()
 
-@property (nonatomic, strong) NSString *path;
-@property (nonatomic, strong) NSNumber *fileType;
-@property (nonatomic, strong) NSNumber *uploadType;
-@property (nonatomic, strong) NSString *serviceName;
-@property (nonatomic, strong) NSString *functionName;
+@property (nonatomic, copy) NSString *path;
+@property (nonatomic, copy) NSNumber *fileType;
+
+@property (nonatomic, copy) NSString *accessKey;
+@property (nonatomic, copy) NSString *accessSecret;
+@property (nonatomic, copy) NSString *securityToken;
+@property (nonatomic, copy) NSString *endPoint;
+@property (nonatomic, copy) NSString *bucketName;
+@property (nonatomic, copy) NSString *objectKey;
 
 @end
 
@@ -30,20 +31,19 @@ static NSString * const DefaultEndPoint = @"https://oss-cn-shenzhen.aliyuncs.com
     if (!arguments) {
         return nil;
     }
+    
     UploadService *model = [UploadService new];
-    model.path = [arguments objectForKey:@"filePath"];
-    model.fileType = [arguments objectForKey:@"fileType"];
-    model.uploadType = [arguments objectForKey:@"uploadType"];
+    model.path = [arguments objectForKey:@"path"];
+    model.fileType = [arguments objectForKey:@"type"];
+    
+    model.accessKey = [arguments objectForKey:@"accessKey"];
+    model.accessSecret = [arguments objectForKey:@"accessSecret"];
+    model.securityToken = [arguments objectForKey:@"securityToken"];
+    model.endPoint = [arguments objectForKey:@"endPoint"];
+    model.bucketName = [arguments objectForKey:@"bucketName"];
+    model.objectKey = [arguments objectForKey:@"objectKey"];
+    
     return model;
-}
-
-- (instancetype) init {
-    self = [super init];
-    if (self) {
-        self.serviceName = @"chikii.ures.UresExtObj";
-        self.functionName = @"StsGetToken";
-    }
-    return self;
 }
 
 - (UploadFileType)getFileTypeValue {
@@ -54,99 +54,52 @@ static NSString * const DefaultEndPoint = @"https://oss-cn-shenzhen.aliyuncs.com
     return fileType;
 }
 
-- (PROTOUploadType)getUploadTypeValue {
-    PROTOUploadType uploadType = PROTOUploadType_TypeZero;
-    if (self.uploadType) {
-        return (PROTOUploadType)self.uploadType.intValue;
-    }
-    return uploadType;
+- (BOOL)checkParam {
+    bool base = CHECK_STR(self.path) || !self.fileType;
+    bool token = CHECK_STR(self.accessKey) || CHECK_STR(self.accessSecret) || CHECK_STR(self.securityToken);
+    bool config = CHECK_STR(self.endPoint) || CHECK_STR(self.bucketName) || CHECK_STR(self.objectKey);
+    
+    return base || token || config;
 }
 
 - (void)startWithResult:(void (^)(id resultData))result {
-    if (!self.path || (self.path.length <= 0) || !self.fileType || !self.uploadType) {
+    if ([self checkParam]) {
         result(nil);
-    } else {
-        
-        switch([self getUploadTypeValue]) {
-            case PROTOUploadType_HeadIconImg:
-            case PROTOUploadType_ClientLog:
-                break;
-            default: {
-                result(nil);
-                return;
-            }
-        }
-        
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            @weakify(self)
-            [self getUploadTokenWithCompletion:^(OSSClient *client, PROTOStsGetTokenRes *tokenRes, NSError *error) {
-                @strongify(self)
-                if (error) {
-                    result(nil);
-                }
-                            
-                [self uploadWithClient:client WithTokenRes:tokenRes WithCompletion:^(id res, NSError *error) {
-                    if (error || (!res || ![res isKindOfClass:[NSString class]])) {
-                        result(nil);
-                    } else {
-                        result(SAFE_STRING(res));
-                    }
-                }];
-            }];
-        });
+        return;
     }
-}
-
-- (void)getUploadTokenWithCompletion:(void (^)(OSSClient *client,PROTOStsGetTokenRes *tokenRes, NSError *error))completion {
-    PROTOStsGetTokenReq *req = [PROTOStsGetTokenReq message];
-    req.uploadType           = [self getUploadTypeValue];
     
-    @weakify(self)
-    [[NetworkServiceManager sharedInstance] sendRequestWithReq:req
-                                                      rspClass:[PROTOStsGetTokenRes class]
-                                                   ServiceName:self.serviceName
-                                                  functionName:self.functionName
-                                                    completion:^(PROTOStsGetTokenRes *rsp, NetworkServiceError *error, ServiceWupStatInfo *info) {
-        @strongify(self)
-        if ([error hasError] || !rsp.hasToken) {
-            if (completion) {
-                if (!error.error) {
-                    error.error = [NSError errorWithDomain:@"" code:-2 userInfo:nil];
-                }
-                completion(nil, nil, error.error);
+    __weak __typeof__(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        __strong __typeof__(weakSelf) strongSelf = weakSelf;
+        [strongSelf uploadWithCompletion:^(id res, NSError *error) {
+            if (error || (CHECK_STR(res) || ![res isKindOfClass:[NSString class]])) {
+                result(nil);
+            } else {
+                result(res);
             }
-            return;
-        }
-
-        PROTOStsGetTokenRes *tokenRes = rsp;
-        id<OSSCredentialProvider> credential = [[OSSStsTokenCredentialProvider alloc] initWithAccessKeyId:tokenRes.token.accessKeyId
-                                                                                              secretKeyId:tokenRes.token.accessKeySecret
-                                                                                            securityToken:tokenRes.token.securityToken];
-        
-        OSSClientConfiguration *conf = [OSSClientConfiguration new];
-        
-        if(!tokenRes.token.endpoint || tokenRes.token.endpoint.length <= 0) {
-            tokenRes.token.endpoint = DefaultEndPoint;
-        }
-        
-        OSSClient *client = [[OSSClient alloc] initWithEndpoint:tokenRes.token.endpoint credentialProvider:credential clientConfiguration:conf];
-        
-        if (completion) {
-            completion(client, tokenRes, nil);
-        }
-        
-    }];
+        } withUploadProgress:^(int64_t bytesSent, int64_t totalBytesSent, int64_t totalBytesExpectedToSend) {
+            
+        }];
+    });
+    
 }
 
-- (void)uploadWithClient:(OSSClient *)client WithTokenRes:(PROTOStsGetTokenRes *)tokenRes WithCompletion:(void (^)(id res, NSError *error))completion {
+- (OSSClient *)createOSSClient {
+    id<OSSCredentialProvider> credential = [[OSSStsTokenCredentialProvider alloc] initWithAccessKeyId:self.accessKey
+                                                                                          secretKeyId:self.accessSecret
+                                                                                        securityToken:self.securityToken];
+    return [[OSSClient alloc] initWithEndpoint:self.endPoint credentialProvider:credential clientConfiguration:[OSSClientConfiguration new]];
+}
+
+- (void)uploadWithCompletion:(void (^)(id res, NSError *error))completion withUploadProgress:(OSSNetworkingUploadProgressBlock)uploadProgress {
     
-    NSString *fileUrl = [[NSString stringWithFormat:@"%@%@", tokenRes.file.filePath, tokenRes.file.fileName] stringByAppendingPathExtension:[self getFilePathExtensionWithType:[self getFileTypeValue]]];
+    NSString *fileUrl = [[NSString stringWithFormat:@"%@", self.objectKey] stringByAppendingPathExtension:[self getFilePathExtensionWithType:[self getFileTypeValue]]];
     
     OSSPutObjectRequest *put = [OSSPutObjectRequest new];
-    put.bucketName = tokenRes.token.bucketName;
+    put.bucketName = self.bucketName;
     put.objectKey = fileUrl;
     put.uploadingData = [self getFileData:self.path];
-    put.callbackParam = [self getCallbackBody:tokenRes fileUrl:fileUrl];
     
     if (!put.uploadingData || put.uploadingData.length <= 0) {
         if (completion) {
@@ -154,25 +107,27 @@ static NSString * const DefaultEndPoint = @"https://oss-cn-shenzhen.aliyuncs.com
         }
     }
     
-    put.uploadProgress = ^(int64_t bytesSent, int64_t totalByteSent, int64_t totalBytesExpectedToSend) {
-        DYLogInfo(@"%lld, %lld, %lld", bytesSent, totalByteSent, totalBytesExpectedToSend);
-    };
+    put.uploadProgress = uploadProgress;
     
-    OSSTask * putTask = [client putObject:put];
+    OSSClient *client = [self createOSSClient];
+    
+    OSSTask *putTask = [client putObject:put];
+    
+    __weak __typeof__(self) weakSelf = self;
     [[putTask continueWithBlock:^id _Nullable(OSSTask * _Nonnull task) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (!task.error) {
-                OSSTask* taskResult = [client presignPublicURLWithBucketName:tokenRes.token.bucketName withObjectKey:fileUrl];
-                if (completion) {
-                    completion(taskResult.result, nil);
-                }
+        
+        __strong __typeof__(weakSelf) strongSelf = weakSelf;
+        if (!task.error) {
+            OSSTask* taskResult = [client presignPublicURLWithBucketName:strongSelf.bucketName withObjectKey:fileUrl];
+            if (completion) {
+                completion(taskResult.result, nil);
             }
-            else {
-                if (completion) {
-                    completion(nil, task.error);
-                }
+        } else {
+            if (completion) {
+                completion(nil, task.error);
             }
-        });
+        }
+        
         return nil;
     }] waitUntilFinished];
 }
@@ -224,43 +179,6 @@ static NSString * const DefaultEndPoint = @"https://oss-cn-shenzhen.aliyuncs.com
             break;
     }
     return pathExtension;
-}
-
-- (NSString *)jsonStringEncoded:(NSDictionary *)body {
-    if ([NSJSONSerialization isValidJSONObject:body]) {
-        NSError *error;
-        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:body options:0 error:&error];
-        return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-    }
-    return nil;
-}
-
-- (NSDictionary *)getCallbackBody:(PROTOStsGetTokenRes *)tokenRes fileUrl:(NSString *)fileUrl {
-    NSMutableDictionary *opt = [NSMutableDictionary dictionary];
-    opt[@"file_url"]         = fileUrl;
-    opt[@"session_key"]      = tokenRes.token.sessionKey;
-    
-    NSMutableDictionary *body = [NSMutableDictionary dictionary];
-    
-    PROTORPCInput *input = [[PROTORPCInput alloc] init];
-    input.obj            = self.serviceName;
-    input.func           = self.functionName;
-    input.opt            = opt;
-    
-    PROTOStsGetTokenReq *req = [PROTOStsGetTokenReq message];
-    req.uploadType = [self getUploadTypeValue];
-    input.req = [((GPBMessage*)req) data];
-    
-    NSString *base64Str = [[input data] base64EncodedStringWithOptions:0];
-    
-    [body safeSetObject:base64Str forKey:@"data"];
-    [body safeSetObject:self.uploadType forKey:@"upload_type"];
-    
-    NSMutableDictionary *result = [NSMutableDictionary dictionary];
-    [result safeSetObject:[self jsonStringEncoded:body] forKey:@"callbackBody"];
-    [result safeSetObject:tokenRes.token.callbackURL forKey:@"callbackUrl"];
-    
-    return result;
 }
 
 @end

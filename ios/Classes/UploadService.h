@@ -12,13 +12,13 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(int32_t, UploadFileType) {
     UploadFileType_Unknow = 0,
     /** 音频格式 - AAC */
-    UploadFileType_AAC,
+    UploadFileType_AAC = 1,
     /** 图片格式 - PNG */
-    UploadFileType_PNG,
+    UploadFileType_PNG = 2,
     /** 图片格式 - JPG */
-    UploadFileType_JPG,
-    UploadFileType_ZIP,
-    UploadFileType_GIF,
+    UploadFileType_JPG = 3,
+    UploadFileType_ZIP = 4,
+    UploadFileType_GIF = 5,
 };
 
 

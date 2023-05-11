@@ -17,11 +17,7 @@ class MethodChannelFlutterAliyunOss extends FlutterAliyunOssPlatform {
   }
 
   @override
-  Future<String?> upload(String filePath, int fileType, int uploadType) async {
-    return await methodChannel.invokeMethod<Map<String,Object>>('file_upload',{
-      'filePath':filePath,
-      'fileType':fileType,
-      'uploadType':uploadType
-    });
+  Future<String?> upload(Map<String,Object> params) async {
+    return await methodChannel.invokeMethod<Map<String,Object>>('file_upload',params);
   }
 }

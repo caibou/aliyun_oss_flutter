@@ -188,11 +188,7 @@ static NSString * const DefaultEndPoint = @"https://oss-cn-shenzhen.aliyuncs.com
         case UploadFileType_PNG:
         case UploadFileType_GIF:
         case UploadFileType_JPG: {
-            UIImage *image = [UIImage imageWithContentsOfFile:path];
-            UIImage *newImage = [image fixOrientation];
-            if (newImage) {
-                data = UIImagePNGRepresentation(newImage);
-            }
+            data = [UIImage imageWithContentsOfFile:path];
             break;
         }
         default:

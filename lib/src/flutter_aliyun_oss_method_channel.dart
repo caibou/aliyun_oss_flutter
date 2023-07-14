@@ -11,14 +11,7 @@ class MethodChannelFlutterAliyunOss extends FlutterAliyunOssPlatform {
   final methodChannel = const MethodChannel('flutter_aliyun_oss');
 
   @override
-  Future<String?> getPlatformVersion() async {
-    final version =
-        await methodChannel.invokeMethod<String>('getPlatformVersion');
-    return version;
-  }
-
-  @override
   Future<String?> upload(UploadParams params) async {
-    return await methodChannel.invokeMethod<Map<String,Object>>('file_upload',params.toMaps());
+    return await methodChannel.invokeMethod<String?>('file_upload',params.toMaps());
   }
 }

@@ -25,10 +25,6 @@ abstract class FlutterAliyunOssPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
-  }
-
   Future<String?> upload(UploadParams params) {
        throw UnimplementedError('platformVersion() has not been implemented.'); 
   }

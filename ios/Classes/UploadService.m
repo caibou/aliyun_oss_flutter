@@ -26,7 +26,7 @@
 
 @implementation UploadService
 
-+ (instancetype)initFormMap:(NSDictionary *)arguments {
++ (instancetype)initWithMap:(NSDictionary *)arguments {
     if (!arguments) {
         return nil;
     }

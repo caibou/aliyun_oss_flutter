@@ -1,6 +1,8 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'flutter_aliyun_oss_method_channel.dart';
+import 'flutter_aliyun_oss_params.dart';
+
 
 abstract class FlutterAliyunOssPlatform extends PlatformInterface {
   /// Constructs a FlutterAliyunOssPlatform.
@@ -27,7 +29,7 @@ abstract class FlutterAliyunOssPlatform extends PlatformInterface {
     throw UnimplementedError('platformVersion() has not been implemented.');
   }
 
-  Future<String?> upload(Map<String,Object> params) {
+  Future<String?> upload(UploadParams params) {
        throw UnimplementedError('platformVersion() has not been implemented.'); 
   }
 }

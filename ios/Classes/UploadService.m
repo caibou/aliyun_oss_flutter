@@ -14,7 +14,6 @@
 @interface UploadService()
 
 @property (nonatomic, copy) NSString *path;
-@property (nonatomic, copy) NSNumber *fileType;
 
 @property (nonatomic, copy) NSString *accessKey;
 @property (nonatomic, copy) NSString *accessSecret;
@@ -34,8 +33,6 @@
     
     UploadService *model = [UploadService new];
     model.path = [arguments objectForKey:@"path"];
-    model.fileType = [arguments objectForKey:@"type"];
-    
     model.accessKey = [arguments objectForKey:@"accessKey"];
     model.accessSecret = [arguments objectForKey:@"accessSecret"];
     model.securityToken = [arguments objectForKey:@"securityToken"];
@@ -46,16 +43,8 @@
     return model;
 }
 
-- (UploadFileType)getFileTypeValue {
-    UploadFileType fileType = UploadFileType_Unknow;
-    if (self.fileType) {
-        return (UploadFileType)self.fileType.intValue;
-    }
-    return fileType;
-}
-
 - (BOOL)checkParam {
-    bool base = CHECK_STR(self.path) || !self.fileType;
+    bool base = CHECK_STR(self.path);
     bool token = CHECK_STR(self.accessKey) || CHECK_STR(self.accessSecret) || CHECK_STR(self.securityToken);
     bool config = CHECK_STR(self.endPoint) || CHECK_STR(self.bucketName) || CHECK_STR(self.objectKey);
     
@@ -94,11 +83,9 @@
 
 - (void)uploadWithCompletion:(void (^)(id res, NSError *error))completion withUploadProgress:(OSSNetworkingUploadProgressBlock)uploadProgress {
     
-    NSString *fileUrl = [[NSString stringWithFormat:@"%@", self.objectKey] stringByAppendingPathExtension:[self getFilePathExtensionWithType:[self getFileTypeValue]]];
-    
     OSSPutObjectRequest *put = [OSSPutObjectRequest new];
     put.bucketName = self.bucketName;
-    put.objectKey = fileUrl;
+    put.objectKey = self.objectKey;
     put.uploadingData = [self getFileData:self.path];
     
     if (!put.uploadingData || put.uploadingData.length <= 0) {
@@ -118,7 +105,7 @@
         
         __strong __typeof__(weakSelf) strongSelf = weakSelf;
         if (!task.error) {
-            OSSTask* taskResult = [client presignPublicURLWithBucketName:strongSelf.bucketName withObjectKey:fileUrl];
+            OSSTask* taskResult = [client presignPublicURLWithBucketName:strongSelf.bucketName withObjectKey:self.objectKey];
             if (completion) {
                 completion(taskResult.result, nil);
             }
@@ -133,52 +120,7 @@
 }
 
 - (NSData *)getFileData:(NSString *)path {
-    NSData *data = nil;
-    switch([self getFileTypeValue]) {
-        case UploadFileType_AAC:
-        case UploadFileType_ZIP: {
-            data = [NSData dataWithContentsOfFile:path];
-            break;
-        }
-        case UploadFileType_PNG:
-        case UploadFileType_GIF:
-        case UploadFileType_JPG: {
-            data = [UIImage imageWithContentsOfFile:path];
-            break;
-        }
-        default:
-            break;
-    }
-    return data;
-}
-
-- (NSString *)getFilePathExtensionWithType:(UploadFileType)type {
-    NSString * pathExtension;
-    switch (type) {
-        case UploadFileType_AAC: {
-            pathExtension = @"aac";
-            break;
-        }
-        case UploadFileType_PNG: {
-            pathExtension = @"png";
-            break;
-        }
-        case UploadFileType_JPG: {
-            pathExtension = @"jpeg";
-            break;
-        }
-        case UploadFileType_ZIP: {
-            pathExtension = @"zip";
-            break;
-        }
-        case UploadFileType_GIF: {
-            pathExtension = @"gif";
-            break;
-        }
-        default:
-            break;
-    }
-    return pathExtension;
+    return [NSData dataWithContentsOfFile:path];
 }
 
 @end

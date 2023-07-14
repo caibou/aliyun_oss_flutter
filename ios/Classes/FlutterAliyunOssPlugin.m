@@ -20,15 +20,16 @@ static NSString * const FileUpLoadMethodName = @"file_upload";
       if ([call.arguments isKindOfClass:[NSDictionary class]]) {
           UploadService *uploadService = [UploadService initWithMap:(NSDictionary *)call.arguments];
           if (uploadService) {
+              dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
               [uploadService startWithResult:^(id resultData) {
-                  dispatch_async(dispatch_get_main_queue(),^{
-                      if (resultData && [resultData isKindOfClass:[NSString class]]) {
-                          result(resultData);
-                      } else {
-                          result(nil);
-                      }
-                  });
+                  if (resultData && [resultData isKindOfClass:[NSString class]]) {
+                      result(resultData);
+                  } else {
+                      result(nil);
+                  }
+                  dispatch_semaphore_signal(semaphore);
               }];
+              dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
           }
       }
       result(nil);

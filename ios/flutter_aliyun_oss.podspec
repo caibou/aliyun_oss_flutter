@@ -18,16 +18,6 @@ A new Flutter plugin project.
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'
   
-  user_header_paths = [
-          '"${PROJECT_DIR}/../'+ $DYProjectFolder + '/protoOC"',
-          '"${PROJECT_DIR}/../'+ $DYProjectFolder + '/protoOC/pb"',
-          '"${PROJECT_DIR}/../'+ $DYProjectFolder + '/protoOC/client"',
-          ]
-          
-  s.xcconfig = {
-      'USER_HEADER_SEARCH_PATHS' => user_header_paths.join(' ')
-  }
-
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
 end

@@ -43,4 +43,11 @@ android {
     defaultConfig {
         minSdkVersion 16
     }
+
+    dependencies {
+        implementation('com.aliyun.dpa:oss-android-sdk:2.9.9') {
+            exclude group: 'com.squareup.okhttp3'
+            exclude group: 'com.squareup.okio'
+        }
+    }
 }
